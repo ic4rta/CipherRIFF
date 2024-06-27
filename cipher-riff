@@ -1,0 +1,152 @@
+#!/usr/bin/env perl
+
+use Getopt::Long;
+use Fcntl;
+use Crypt::Mode::CTR;
+
+# KASUMI: IV de 8 bytes, key de 16 bytes
+# Skipjack: IV de 8 bytes, key de 10 bytes
+# Anubis: IV de 16 bytes, key de 16 bytes
+# Noekeon: IV de 16 bytes, key de 16 bytes
+# Twofish: IV de 16 bytes, key minimo de 16 bytes
+# Serpent: IV de 16 bytes, key minimo de 16 bytes
+# SEED: IV de 16 bytes, key de 16 bytes 
+# RC6: IV de 16 bytes, key minimo de 8 bytes
+# AES: IV de 16 bytes, key minimo de 16 bytes
+# XTEA: IV de 8 bytes, key de 16 byte
+
+my ($cifrar, $descifrar, $archivo, $chunk_id, $algoritmo);
+GetOptions(
+    'c' => \$cifrar,
+    'd' => \$descifrar,
+    'a=s' => \$archivo,
+    'i=s' => \$chunk_id,
+    'f=s' => \$algoritmo
+) or die "Error con los argumentos de la CLI";
+
+@cifrados = ("KASUMI", "Skipjack", "Anubis", "Noekeon", "Twofish", "Serpent", "SEED", "RC6", "AES", "XTEA");
+
+sub leer_wav {
+    my ($archivo) = @_;
+    my ($riff, $chunk_id, $chunk_tam, $chunk_data, $tam);
+    my %chunks;
+
+    open(ARCHIVO_HANDLE, "<:raw", $archivo) or die "No se puede abrir el archivo: $!";
+    read(ARCHIVO_HANDLE, $riff, 12);
+
+    while (read(ARCHIVO_HANDLE, $chunk_id, 4)) {
+        read(ARCHIVO_HANDLE, $chunk_tam, 4);
+        $tam = unpack('L', $chunk_tam);
+        read(ARCHIVO_HANDLE, $chunk_data, $tam);
+        $chunks{$chunk_id} = $chunk_tam . $chunk_data;
+    }
+
+    close(ARCHIVO_HANDLE);
+    return ($riff, \%chunks);
+}
+
+sub escribir_wav {
+    my ($archivo, $riff, $chunks, $nuevo_chunk) = @_;
+    open(ARCHIVO_HANDLE, ">:raw", $archivo) or die "No se puede abrir el archivo: $!";
+    print ARCHIVO_HANDLE $riff;
+    
+    foreach my $chunk_id (keys %$chunks) {
+        print ARCHIVO_HANDLE $chunk_id;
+        print ARCHIVO_HANDLE $chunks->{$chunk_id};
+    }
+    
+    print ARCHIVO_HANDLE $nuevo_chunk;
+    close(ARCHIVO_HANDLE);
+}
+
+sub cifrar_texto {
+    my ($texto, $key, $iv, $algoritmo) = @_;
+    my ($cipher, $texto_cifrado, $texto_cifrado_hex);
+
+    foreach my $cifrado (@cifrados) {
+        if ($algoritmo eq $cifrado) {
+            $cipher = Crypt::Mode::CTR->new($algoritmo);
+            last;
+        }
+    }
+    if (!$cipher) {
+        die "$algoritmo no soportado";
+    }
+
+    $texto_cifrado = $cipher->encrypt($texto, $key, $iv);
+    $texto_cifrado_hex = unpack("H*", $texto_cifrado);
+    return $texto_cifrado_hex;
+}
+
+sub crear_chunk {
+    my ($chunk_id, $texto, $key, $iv, $algoritmo) = @_;
+    my $texto_cifrado_hex = cifrar_texto($texto, $key, $iv, $algoritmo);
+    my $chunk_tam = pack("L", length($texto_cifrado_hex) / 2);
+    return $chunk_id . $chunk_tam . pack("H*", $texto_cifrado_hex);
+}
+
+sub descifrar_texto {
+    my ($texto_cifrado_hex, $key, $iv, $algoritmo) = @_;
+    my ($cipher, $texto_cifrado, $texto_plano);
+
+    foreach my $cifrado (@cifrados) {
+        if ($algoritmo eq $cifrado) {
+            $cipher = Crypt::Mode::CTR->new($algoritmo);
+            last;
+        }
+    }
+    if (!$cipher) {
+        die "$algoritmo no soportado";
+    }
+
+    $texto_cifrado = pack("H*", $texto_cifrado_hex);
+    $texto_plano = $cipher->decrypt($texto_cifrado, $key, $iv);
+    return $texto_plano;
+}
+
+sub extraer_chunk {
+    my ($chunks, $chunk_id) = @_;
+    if (exists $chunks->{$chunk_id}) {
+        my $chunk_tam = unpack("L", substr($chunks->{$chunk_id}, 0, 4));
+        my $texto_cifrado_hex = unpack("H*", substr($chunks->{$chunk_id}, 4, $chunk_tam));
+        return $texto_cifrado_hex;
+    } else {
+        die "Chunk $chunk_id no encontrado";
+    }
+}
+
+sub main {
+	print "Key: ";
+	my $key = <STDIN>;
+	chomp($key);
+
+	print "IV: ";
+	my $iv = <STDIN>;
+	chomp($iv);
+
+	if ($cifrar) {
+	    print "Texto: ";
+	    my $texto = <STDIN>;
+	    chomp($texto);
+
+	    my ($riff, $chunks) = leer_wav($archivo);
+	    my $nuevo_chunk = crear_chunk($chunk_id, $texto, $key, $iv, $algoritmo);
+	    escribir_wav("${archivo}_mod.wav", $riff, $chunks, $nuevo_chunk);
+	    print "Chunk creado y cifrado, archivo guardado como ${archivo}_mod.wav\n";
+	    
+	} elsif ($descifrar) {
+	    my ($riff, $chunks) = leer_wav($archivo);
+	    my $texto_cifrado_hex = extraer_chunk($chunks, $chunk_id);
+	    my $texto_original = descifrar_texto($texto_cifrado_hex, $key, $iv, $algoritmo);
+	    print "Chunk descifrado: $texto_original\n";
+	    
+	} else {
+		die "Debe poner -c para cifrar o -d para descifrar";
+	}		
+}
+
+die "Debe poner el archivo WAV con -a" unless $archivo;
+die "Debe poner el nombre del chunk con -i" unless $chunk_id;
+die "Debe poner el algoritmo de cifrado con -f" unless $algoritmo;
+
+main()
