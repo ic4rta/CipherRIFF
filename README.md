@@ -1,7 +1,7 @@
 ## ¿Que es esto y por que?
 
-Los archivos WAV tiene una cabecera de nombre RIFF, RIFF es un formato de Microsoft para almacenar segmentos (chunks) de informacion con relacion al archivo, como descripcion, formato, lista de reproduccion, tiempo, etc.
-RIFF es una cabecera de 8 bytes que se compone de 4 bytes con el contenido "RIFF" y 4 bytes que indican la longitud de los datos. Ahora, en RIFF existen los "Chunk RIFF",
+Los archivos WAV tiene una cabecera de nombre RIFF, RIFF es un formato de Microsoft para almacenar segmentos (chunks) de informacion con relacion al archivo, como descripcion, formato, lista de reproduccion, tiempo, número de canales, tasa de bytes, etc.
+RIFF es una cabecera de 44 bytes que se compone principalmente de los chunks fmt y data. Ahora, en RIFF existen los "Chunk RIFF",
 que hacen referencia a los datos de un archivo WAV y estos chunks tienen un "id" de 4 bytes para poder identificarlo.
 
 Este script te permitira crear chunks RIFF los cuales podras cifrarlos con diferentes tipos de algoritmos de cifrado por bloques. La razon de este script es que por mucho tiempo llevo "ocultando" informacion de este modo un tanto peculiar, y me gusta por que cuando se procesa un archivo WAV por un reproductor, se deben de ignorar los chunks desconocidos, sin embargo, no los elimina, por lo que el nuevo chunk creado permanecera en el WAV sin afectar el audio original
