@@ -38,7 +38,7 @@ En el archivo WAV se creara un chunk RIFF de nombre NATS que estara cifrado usan
 ```
 Si con otro script o herramienta quieres ver los datos del chunk creado, te daras cuenta que estan en hexadecimal, pero al decodificarlos solo saldran caracteres raros
 
-![](https://github.com/ic4rta/NatsukiWAV/blob/main/assets/chunks.png)
+![](https://github.com/ic4rta/CipherRIFF/blob/main/assets/chunks.png)
 
 #### Descifrado
 
@@ -48,7 +48,7 @@ Se descrifrara el chunk creado anteriormente (se debe de poner ahora el argument
 ./cipher-riff -d -a ImperialMarch60.wav_mod.wav -i NATS -f XTEA
 ```
 
-![](https://github.com/ic4rta/NatsukiWAV/blob/main/assets/descifrado.png)
+![](https://github.com/ic4rta/CipherRIFF/blob/main/assets/descifrado.png)
 
 #### Consideraciones
 
